@@ -1,0 +1,35 @@
+{
+  "name": "worlde",
+  "version": "1.0.0",
+  "description": "Un jeu de Wordle en ligne de commande",
+  "main": "dist/start.js",
+  "scripts": {
+    "start": "ts-node src/start.ts",
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miniluchi/WordleGame.git"
+  },
+  "author": "Nathan OGER",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Miniluchi/WordleGame/issues"
+  },
+  "homepage": "https://github.com/Miniluchi/WordleGame#readme",
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.0",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@types/readline-sync": "^1.4.8",
+    "commander": "^13.1.0",
+    "crypto": "^1.0.1",
+    "readline-sync": "^1.4.10",
+    "ts-node": "^10.9.2"
+  }
+}
