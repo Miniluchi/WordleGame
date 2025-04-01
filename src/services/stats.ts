@@ -1,7 +1,6 @@
 // Stats functions
 
 import fs from "fs";
-import crypto from "crypto";
 import { Game, Stats } from "../interfaces";
 import path from "path";
 
@@ -41,23 +40,16 @@ export class StatsService {
   }
 
   static saveStats(stats: Stats) {
-    // get sha256 of stats
-    const OLD_sha256 = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(stats))
-      .digest("hex");
+    // get current stats from file
+    const currentStats = fs.existsSync(statsFile)
+      ? JSON.parse(fs.readFileSync(statsFile, "utf8"))
+      : { history: [] };
 
+    // write new stats to file
     fs.writeFileSync(statsFile, JSON.stringify(stats));
 
-    const NEW_sha256 = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(stats))
-      .digest("hex");
-
-    if (OLD_sha256 !== NEW_sha256) {
-      return true;
-    }
-    return false;
+    // compare objects
+    return JSON.stringify(currentStats) !== JSON.stringify(stats);
   }
 
   static deleteStats() {
