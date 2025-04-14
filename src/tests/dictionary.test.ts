@@ -2,88 +2,96 @@ import { DictionaryService } from "../services/dictionary";
 import fs from "fs";
 import path from "path";
 
-describe("DictionaryService", () => {
-  const dictionaryPath = path.join(__dirname, "../../data/words.json");
+describe("Dictionnaire", () => {
+  // Chemin du fichier de dictionnaire utilisé pour les tests
+  const dictPath = path.join(__dirname, "../../data/words.json");
+
+  // Liste de mots pour les tests
   const testWords = [
     "test",
     "word",
     "game",
     "play",
     "hello",
-    "world",
+    "world", // mots de 5 lettres
     "pizza",
     "music",
     "dance",
     "happy",
   ];
 
+  // Nettoyer l'environnement avant chaque test
   beforeEach(() => {
-    // Nettoyer le fichier de dictionnaire avant chaque test
-    if (fs.existsSync(dictionaryPath)) {
-      fs.unlinkSync(dictionaryPath);
+    // Supprimer les fichiers/dossiers de test s'ils existent déjà
+    if (fs.existsSync(dictPath)) {
+      fs.unlinkSync(dictPath);
     }
-    if (fs.existsSync(path.dirname(dictionaryPath))) {
-      fs.rmSync(path.dirname(dictionaryPath), { recursive: true });
+    const dataDir = path.dirname(dictPath);
+    if (fs.existsSync(dataDir)) {
+      fs.rmSync(dataDir, { recursive: true });
     }
   });
 
-  it("should create dictionary folder and file if they don't exist", () => {
-    // Vérifier que le dossier et le fichier n'existent pas
-    expect(fs.existsSync(path.dirname(dictionaryPath))).toBe(false);
-    expect(fs.existsSync(dictionaryPath)).toBe(false);
+  test("création automatique du dossier et fichier si absents", () => {
+    // Vérifier l'état initial
+    expect(fs.existsSync(path.dirname(dictPath))).toBe(false);
+    expect(fs.existsSync(dictPath)).toBe(false);
 
-    // Appeler openDictionary
+    // Initialiser le dictionnaire
     DictionaryService.openDictionary();
 
-    // Vérifier que le dossier et le fichier ont été créés
-    expect(fs.existsSync(path.dirname(dictionaryPath))).toBe(true);
-    expect(fs.existsSync(dictionaryPath)).toBe(true);
-    expect(JSON.parse(fs.readFileSync(dictionaryPath, "utf8"))).toEqual([]);
+    // Vérifier que tout a été créé correctement
+    expect(fs.existsSync(path.dirname(dictPath))).toBe(true);
+    expect(fs.existsSync(dictPath)).toBe(true);
+
+    // Vérifier qu'on a un dictionnaire vide au début
+    const dict = JSON.parse(fs.readFileSync(dictPath, "utf8"));
+    expect(dict).toEqual([]);
   });
 
-  it("should load existing dictionary file", () => {
-    // Créer le dossier et le fichier avec des mots de test
-    fs.mkdirSync(path.dirname(dictionaryPath), { recursive: true });
-    fs.writeFileSync(dictionaryPath, JSON.stringify(testWords));
+  test("chargement du dictionnaire existant", () => {
+    // Préparer un dictionnaire de test
+    fs.mkdirSync(path.dirname(dictPath), { recursive: true });
+    fs.writeFileSync(dictPath, JSON.stringify(testWords));
 
-    // Appeler openDictionary
+    // Charger le dictionnaire
     DictionaryService.openDictionary();
 
     // Vérifier que les mots ont été chargés
-    const dictionary = JSON.parse(fs.readFileSync(dictionaryPath, "utf8"));
-    expect(dictionary).toEqual(testWords);
+    const dictContents = JSON.parse(fs.readFileSync(dictPath, "utf8"));
+    expect(dictContents).toEqual(testWords);
   });
 
-  it("should get a random word of specified length", () => {
-    // Créer le dossier et le fichier avec des mots de test
-    fs.mkdirSync(path.dirname(dictionaryPath), { recursive: true });
-    fs.writeFileSync(dictionaryPath, JSON.stringify(testWords));
+  test("récupération d'un mot aléatoire de longueur spécifique", () => {
+    // Créer un dictionnaire avec nos mots de test
+    fs.mkdirSync(path.dirname(dictPath), { recursive: true });
+    fs.writeFileSync(dictPath, JSON.stringify(testWords));
 
-    // Appeler getRandomWord
+    // Récupérer un mot de 5 lettres
     const word = DictionaryService.getRandomWord(5);
 
-    // Vérifier que le mot est valide
+    // Vérifier que le mot a bien 5 lettres et existe dans notre liste
     expect(word.length).toBe(5);
     expect(testWords).toContain(word);
   });
 
-  it("should throw an error if no word of the requested length exists", () => {
-    // Créer le dossier et le fichier avec des mots de test
-    fs.mkdirSync(path.dirname(dictionaryPath), { recursive: true });
-    fs.writeFileSync(dictionaryPath, JSON.stringify(testWords));
+  test("erreur si aucun mot de la longueur demandée", () => {
+    // Créer un dictionnaire avec nos mots de test
+    fs.mkdirSync(path.dirname(dictPath), { recursive: true });
+    fs.writeFileSync(dictPath, JSON.stringify(testWords));
 
-    // Vérifier que l'erreur est levée
+    // Essayer de récupérer un mot de 10 lettres (alors qu'on n'en a pas)
     expect(() => DictionaryService.getRandomWord(10)).toThrow(
       "Aucun mot de longueur 10 trouvé dans le dictionnaire"
     );
   });
 
-  it("should handle empty dictionary file", () => {
-    // Créer le dossier et le fichier vide
-    fs.mkdirSync(path.dirname(dictionaryPath), { recursive: true });
-    fs.writeFileSync(dictionaryPath, "[]");
+  test("erreur si dictionnaire vide", () => {
+    // Créer un dictionnaire vide
+    fs.mkdirSync(path.dirname(dictPath), { recursive: true });
+    fs.writeFileSync(dictPath, "[]");
 
-    // Vérifier que l'erreur est levée
+    // Essayer de récupérer un mot alors que le dictionnaire est vide
     expect(() => DictionaryService.getRandomWord(5)).toThrow(
       "Aucun mot de longueur 5 trouvé dans le dictionnaire"
     );

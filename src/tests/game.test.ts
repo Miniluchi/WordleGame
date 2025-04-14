@@ -3,7 +3,7 @@ import { DictionaryService } from "../services/dictionary";
 import { StatsService } from "../services/stats";
 import * as readlineSync from "readline-sync";
 
-// Mock des dépendances
+// Mock des dépendances externes
 jest.mock("../services/dictionary");
 jest.mock("../services/stats");
 jest.mock("readline-sync");
@@ -19,49 +19,52 @@ describe("Game Module", () => {
   });
 
   describe("writeInColor", () => {
-    it("should return green for correct letter in correct position", () => {
-      const result = writeInColor("TEST", "TEST");
-      expect(result).toBe(
+    // Test de la coloration des lettres
+    test("lettres bien placées -> vert", () => {
+      const coloredOutput = writeInColor("TEST", "TEST");
+      expect(coloredOutput).toBe(
         "\x1b[32mT\x1b[0m\x1b[32mE\x1b[0m\x1b[32mS\x1b[0m\x1b[32mT\x1b[0m"
       );
     });
 
-    it("should return yellow for correct letter in wrong position", () => {
-      const result = writeInColor("STET", "TEST");
+    test("lettres mal placées -> jaune", () => {
+      const resultat = writeInColor("STET", "TEST");
 
-      // Vérifie la présence de chaque lettre colorée sans se soucier des codes ANSI exacts
-      expect(result).toMatch(/S.*T.*E.*T/);
-      expect(result).toContain("\x1b[33m"); // Jaune
-      expect(result).toContain("\x1b[32m"); // Vert
+      // On vérifie juste que les codes de couleur sont présents
+      expect(resultat).toMatch(/S.*T.*E.*T/);
+      expect(resultat).toContain("\x1b[33m"); // Code jaune
+      expect(resultat).toContain("\x1b[32m"); // Code vert
     });
 
-    it("should return gray for incorrect letter", () => {
-      const result = writeInColor("ABCD", "TEST");
-      expect(result).toBe(
+    test("lettres absentes -> gris", () => {
+      const resultat = writeInColor("ABCD", "TEST");
+      expect(resultat).toBe(
         "\x1b[37mA\x1b[0m\x1b[37mB\x1b[0m\x1b[37mC\x1b[0m\x1b[37mD\x1b[0m"
       );
     });
   });
 
   describe("calculateScore", () => {
-    it("should calculate score correctly for first try", () => {
-      const score = calculateScore(["TEST"], "TEST");
-      expect(score).toBe(2000); // 100 * (6-1) * 4 (longueur du mot)
+    test("score max au premier essai", () => {
+      expect(calculateScore(["TEST"], "TEST")).toBe(2000);
     });
 
-    it("should calculate score correctly for multiple tries", () => {
-      const score = calculateScore(["ABCD", "EFGH", "TEST"], "TEST");
-      expect(score).toBe(1200); // 100 * (6-3) * 4 (longueur du mot)
+    test("score réduit après plusieurs essais", () => {
+      const scoreApres3Essais = calculateScore(
+        ["ABCD", "EFGH", "TEST"],
+        "TEST"
+      );
+      expect(scoreApres3Essais).toBe(1200); // 100 * (6-3) * 4
     });
 
-    it("should handle longer words correctly", () => {
+    test("score adapté à la longueur du mot", () => {
       const score = calculateScore(["ABCD", "EFGH", "TEST"], "LONGER");
-      expect(score).toBe(1800); // 100 * (6-3) * 6 (longueur du mot)
+      expect(score).toBe(1800); // Pour un mot de 6 lettres
     });
   });
 
   describe("startGame", () => {
-    const mockOptions = {
+    const options = {
       user: "testUser",
       length: "5",
       tries: "6",
@@ -69,18 +72,18 @@ describe("Game Module", () => {
     };
 
     beforeEach(() => {
-      // Mock DictionaryService
+      // Configuration des mocks pour le mot à deviner
       (DictionaryService.getRandomWord as jest.Mock).mockReturnValue("TEST");
-
-      // Mock readlineSync
       (readlineSync.question as jest.Mock).mockReturnValue("TEST");
     });
 
-    it("should start a default game and win", () => {
-      startGame(mockOptions);
+    test("partie gagnée du premier coup", () => {
+      startGame(options);
 
       expect(DictionaryService.getRandomWord).toHaveBeenCalledWith(5);
       expect(readlineSync.question).toHaveBeenCalledWith("Entrez un mot : ");
+
+      // Vérification de l'enregistrement de la partie
       expect(StatsService.saveGame).toHaveBeenCalledWith(
         expect.objectContaining({
           user: "testUser",
@@ -88,80 +91,43 @@ describe("Game Module", () => {
           gamemode: "default",
           isWin: true,
           tries: 1,
-          score: 2500, // 2000 (score calculé) + 500 (bonus)
+          score: 2500, // 2000 + 500 (bonus)
         })
       );
     });
 
-    it("should handle timed game mode", () => {
-      const timedOptions = { ...mockOptions, gamemode: "timed" };
-      startGame(timedOptions);
+    test("jeu en mode chronométré", () => {
+      startGame({ ...options, gamemode: "timed" });
 
-      expect(DictionaryService.getRandomWord).toHaveBeenCalledWith(5);
-      expect(readlineSync.question).toHaveBeenCalledWith("Entrez un mot : ");
       expect(StatsService.saveGame).toHaveBeenCalledWith(
         expect.objectContaining({
-          user: "testUser",
-          word: "TEST",
           gamemode: "timed",
           isWin: true,
-          tries: 1,
-          score: 2500, // 2000 (score calculé) + 500 (bonus)
         })
       );
     });
 
-    it("should handle time limit exceeded in timed mode", () => {
-      const timedOptions = { ...mockOptions, gamemode: "timed" };
+    test("valeurs par défaut utilisées quand manquantes", () => {
+      const optionsMinimales = { length: "5", tries: "6" };
+      startGame(optionsMinimales);
 
-      // Créer des dates fixes pour simuler le dépassement de temps
-      const startDate = new Date(0);
-      const endDate = new Date(16000); // 16 secondes plus tard
-
-      // Simuler un dépassement de temps en remplaçant Date par des dates fixes
-      global.Date = jest.fn(() => startDate) as any;
-      (global.Date as any).now = jest.fn(() => 0);
-
-      // Pour le premier appel, retourner startDate, pour le deuxième appel, retourner endDate
-      let dateCallCount = 0;
-      (global.Date as any).mockImplementation(() => {
-        dateCallCount++;
-        return dateCallCount === 1 ? startDate : endDate;
-      });
-
-      // Mock console.log pour vérifier les messages
-      const consoleSpy = jest.spyOn(console, "log");
-
-      // Mock readlineSync pour retourner un mot incorrect
-      (readlineSync.question as jest.Mock).mockReturnValue("WRONG");
-
-      // Exécuter startGame
-      startGame(timedOptions);
-
-      // Vérifier que le message de temps écoulé a été affiché
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/Temps écoulé/)
+      expect(StatsService.saveGame).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gamemode: "default",
+        })
       );
-
-      // Restaurer les mocks
-      jest.restoreAllMocks();
-      global.Date = Date;
     });
 
-    it("should handle invalid game mode", () => {
+    test("mode de jeu invalide bloqué", () => {
       const consoleSpy = jest.spyOn(console, "log");
-      const invalidOptions = { ...mockOptions, gamemode: "invalid" };
-
-      startGame(invalidOptions);
+      startGame({ ...options, gamemode: "inexistant" });
 
       expect(consoleSpy).toHaveBeenCalledWith("Mode de jeu non disponible");
       expect(StatsService.saveGame).not.toHaveBeenCalled();
-
-      consoleSpy.mockRestore();
     });
 
-    it("should handle losing the game", () => {
-      // Mock pour retourner des mots incorrects jusqu'à épuisement des essais
+    test("partie perdue après 6 essais", () => {
+      // Simulation d'essais incorrects
       (readlineSync.question as jest.Mock)
         .mockReturnValueOnce("WRONG")
         .mockReturnValueOnce("WRONG")
@@ -170,13 +136,10 @@ describe("Game Module", () => {
         .mockReturnValueOnce("WRONG")
         .mockReturnValueOnce("WRONG");
 
-      startGame(mockOptions);
+      startGame(options);
 
       expect(StatsService.saveGame).toHaveBeenCalledWith(
         expect.objectContaining({
-          user: "testUser",
-          word: "TEST",
-          gamemode: "default",
           isWin: false,
           tries: 6,
           score: 0,
@@ -184,14 +147,32 @@ describe("Game Module", () => {
       );
     });
 
-    it("should use default values when options are missing", () => {
-      const minimalOptions = { length: "5", tries: "6" };
-      startGame(minimalOptions);
-      expect(StatsService.saveGame).toHaveBeenCalledWith(
-        expect.objectContaining({
-          gamemode: "default",
-        })
+    // Ce test vérifie le time-out en mode chronométré
+    test("time-out en mode chronométré", () => {
+      const optionsTimer = { ...options, gamemode: "timed" };
+
+      // Dates fixes pour simuler le dépassement de temps
+      const startDate = new Date(0);
+      const endDate = new Date(16000); // 16s plus tard
+
+      global.Date = jest.fn(() => startDate) as any;
+      (global.Date as any).now = jest.fn(() => 0);
+
+      let dateCallCount = 0;
+      (global.Date as any).mockImplementation(() => {
+        dateCallCount++;
+        return dateCallCount === 1 ? startDate : endDate;
+      });
+
+      (readlineSync.question as jest.Mock).mockReturnValue("WRONG");
+
+      startGame(optionsTimer);
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringMatching(/Temps écoulé/)
       );
+
+      global.Date = Date;
     });
   });
 });

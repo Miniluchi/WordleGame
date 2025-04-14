@@ -2,10 +2,12 @@ import { StatsService } from "../services/stats";
 import fs from "fs";
 import path from "path";
 import { Game } from "../interfaces";
-describe("StatsService", () => {
+
+describe("Service des statistiques", () => {
   const statsFile = path.join(__dirname, "../../data/stats.json");
 
-  const gameMock: Game = {
+  // Une partie factice pour les tests
+  const gameExample: Game = {
     word: "TEST",
     tries: 3,
     isWin: true,
@@ -15,9 +17,9 @@ describe("StatsService", () => {
     gamemode: "classic",
   };
 
-  // Delete the stats file and folder before each test
+  // Nettoyer l'environnement de test avant chaque test
   beforeEach(() => {
-    // Nettoyer le fichier de stats avant chaque test
+    // On supprime les fichiers s'ils existent
     if (fs.existsSync(statsFile)) {
       fs.unlinkSync(statsFile);
     }
@@ -26,110 +28,137 @@ describe("StatsService", () => {
     }
   });
 
-  it("should open the stats file", () => {
+  test("ouverture du fichier de stats inexistant -> création automatique", () => {
     const stats = StatsService.openStatsFile();
     expect(stats).toEqual({ history: [] });
   });
 
-  it("should create the stats folder if it doesn't exist", () => {
+  test("création du dossier de stats si besoin", () => {
+    // Vérifier que le dossier n'existe pas avant
     expect(fs.existsSync(path.dirname(statsFile))).toBe(false);
+
+    // Créer le dossier
     StatsService.createStatsFolder();
+
+    // Vérifier la création
     expect(fs.existsSync(path.dirname(statsFile))).toBe(true);
-    expect(fs.existsSync(statsFile)).toBe(false);
+    expect(fs.existsSync(statsFile)).toBe(false); // mais pas le fichier
   });
 
-  it("should create the stats file if it doesn't exist", () => {
+  test("création du fichier de stats vide", () => {
+    // Le fichier n'existe pas
     expect(fs.existsSync(statsFile)).toBe(false);
+
+    // Créer le fichier
     StatsService.createStatsFile();
+
+    // Vérifier contenu initial correct
     expect(fs.existsSync(statsFile)).toBe(true);
     const stats = JSON.parse(fs.readFileSync(statsFile, "utf8"));
     expect(stats).toEqual({ history: [] });
   });
 
-  it("should create the stats file if it exists but is empty", () => {
-    // Créer le dossier et le fichier vide
+  test("réécriture fichier existant mais vide", () => {
+    // Créer un fichier vide
     StatsService.createStatsFolder();
-    fs.writeFileSync(statsFile, ""); // Fichier avec uniquement des espaces
+    fs.writeFileSync(statsFile, "");
 
-    // Vérifier que le fichier existe mais est vide
+    // Il existe mais est vide
     expect(fs.existsSync(statsFile)).toBe(true);
     expect(fs.readFileSync(statsFile, "utf8").trim()).toBe("");
 
-    // Appeler createStatsFile
+    // Le service le remplit avec les stats initiales
     StatsService.createStatsFile();
-
-    // Vérifier que le fichier contient les stats initiales
     const stats = JSON.parse(fs.readFileSync(statsFile, "utf8"));
     expect(stats).toEqual({ history: [] });
   });
 
-  it("should add a game to the history", () => {
-    StatsService.saveGame(gameMock);
+  test("fichier avec espaces considéré comme vide", () => {
+    // Créer un fichier avec seulement des espaces/retours
+    StatsService.createStatsFolder();
+    fs.writeFileSync(statsFile, "\n\t\r");
+
+    // Vérifier qu'il est considéré comme vide après trim
+    expect(fs.readFileSync(statsFile, "utf8").trim()).toBe("");
+
+    // Le service le remplit correctement
+    StatsService.createStatsFile();
     const stats = JSON.parse(fs.readFileSync(statsFile, "utf8"));
-    expect(stats.history).toHaveLength(1);
-    expect(stats.history[0]).toEqual(gameMock);
+    expect(stats).toEqual({ history: [] });
   });
 
-  it("should delete the stats file", () => {
+  test("sauvegarde d'une partie dans l'historique", () => {
+    StatsService.saveGame(gameExample);
+
+    // Vérifier que la partie est dans l'historique
+    const stats = JSON.parse(fs.readFileSync(statsFile, "utf8"));
+    expect(stats.history).toHaveLength(1);
+    expect(stats.history[0]).toEqual(gameExample);
+  });
+
+  test("suppression du fichier de stats", () => {
+    // Créer puis supprimer
     StatsService.createStatsFile();
     expect(fs.existsSync(statsFile)).toBe(true);
+
     const result = StatsService.deleteStats();
+
+    // Vérifier suppression
     expect(result).toBe(true);
     expect(fs.existsSync(statsFile)).toBe(false);
   });
 
-  it("should return false when trying to delete non-existent stats file", () => {
-    // S'assurer que le fichier n'existe pas
-    if (fs.existsSync(statsFile)) {
-      fs.unlinkSync(statsFile);
-    }
+  test("suppression d'un fichier inexistant -> false", () => {
+    // Tenter de supprimer un fichier qui n'existe pas
     const result = StatsService.deleteStats();
     expect(result).toBe(false);
   });
 
-  it("should calculate the stats", () => {
-    StatsService.saveGame(gameMock);
+  test("calcul correct des stats avec parties diverses", () => {
+    // Ajouter une partie gagnée
+    StatsService.saveGame(gameExample);
+
+    // Ajouter une partie perdue
+    StatsService.saveGame({
+      ...gameExample,
+      isWin: false,
+      score: 0,
+    });
+
+    // Vérifier les calculs
     const stats = StatsService.calculateStats();
     expect(stats).toEqual({
-      totalGames: 1,
+      totalGames: 2,
       totalWins: 1,
-      totalLosses: 0,
-      totalScore: 100,
+      totalLosses: 1,
+      totalScore: 100, // 100 + 0
     });
   });
 
-  it("Should return a error if the sha256 of the stats file is not the same", () => {
-    // if old sha256 != new sha256, return an error
-    const stats = StatsService.openStatsFile();
-    const stats2 = StatsService.openStatsFile();
-    expect(stats).toEqual({ history: [] });
-    expect(stats2).toEqual({ history: [] });
-  });
-
-  it("should return true when stats are modified and false when unchanged", () => {
-    // Test avec des stats inchangées
+  test("détection des modifications -> retourne true/false", () => {
+    // Cas 1: pas de modification
     const stats = StatsService.openStatsFile();
     const result1 = StatsService.saveStats(stats);
     expect(result1).toBe(false);
 
-    // Test avec des stats modifiées
-    stats.history.push(gameMock);
+    // Cas 2: avec modification
+    stats.history.push(gameExample);
     const result2 = StatsService.saveStats(stats);
     expect(result2).toBe(true);
   });
 
-  it("should display stats correctly", () => {
-    // Ajouter quelques parties pour avoir des stats à afficher
-    StatsService.saveGame(gameMock);
-    StatsService.saveGame({ ...gameMock, isWin: false, score: 0 });
+  test("affichage correcte des statistiques", () => {
+    // Ajouter des parties pour avoir des stats
+    StatsService.saveGame(gameExample);
+    StatsService.saveGame({ ...gameExample, isWin: false, score: 0 });
 
-    // Capturer la sortie console
+    // Surveiller les appels à console.log
     const consoleSpy = jest.spyOn(console, "log");
 
-    // Appeler showStats
+    // Appeler l'affichage
     StatsService.showStats({});
 
-    // Vérifier que les bonnes informations ont été affichées
+    // Vérifier l'affichage
     expect(consoleSpy).toHaveBeenCalledTimes(5);
     expect(consoleSpy).toHaveBeenNthCalledWith(1, "Statistiques du joueur :");
     expect(consoleSpy).toHaveBeenNthCalledWith(
@@ -149,7 +178,6 @@ describe("StatsService", () => {
       "Nombre total de points gagnés : 100"
     );
 
-    // Restaurer le comportement original de console.log
     consoleSpy.mockRestore();
   });
 });
