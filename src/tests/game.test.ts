@@ -73,8 +73,8 @@ describe("Game Module", () => {
 
     beforeEach(() => {
       // Configuration des mocks pour le mot à deviner
-      (DictionaryService.getRandomWord as jest.Mock).mockReturnValue("TEST");
-      (readlineSync.question as jest.Mock).mockReturnValue("TEST");
+      (DictionaryService.getRandomWord as jest.Mock).mockReturnValue("test");
+      (readlineSync.question as jest.Mock).mockReturnValue("test");
     });
 
     test("partie gagnée du premier coup", () => {
@@ -87,7 +87,7 @@ describe("Game Module", () => {
       expect(StatsService.saveGame).toHaveBeenCalledWith(
         expect.objectContaining({
           user: "testUser",
-          word: "TEST",
+          word: "test",
           gamemode: "default",
           isWin: true,
           tries: 1,
