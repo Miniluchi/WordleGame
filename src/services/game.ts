@@ -8,7 +8,9 @@ const TIMED_GAME_TIME_LIMIT = 15; // 15 seconds
 function startGame(options: any) {
   const game: CurrentGame = {
     user: options.user || "default",
-    word: DictionaryService.getRandomWord(parseInt(options.length)),
+    word: DictionaryService.getRandomWord(
+      parseInt(options.length)
+    ).toLowerCase(),
     gamemode: options.gamemode || "default",
     tries: parseInt(options.tries),
     length: parseInt(options.length),
@@ -43,7 +45,7 @@ function startGame(options: any) {
       );
     }
 
-    const userInput = readlineSync.question("Entrez un mot : ");
+    const userInput = readlineSync.question("Entrez un mot : ").toLowerCase();
 
     if (game.gamemode === "timed") {
       const endTime = new Date();
@@ -100,16 +102,19 @@ function startGame(options: any) {
 }
 
 function writeInColor(userInput: string, word: string) {
-  // foreach letter of the userInput
+  // Convertir les entrées en minuscules pour la comparaison
+  const lowerUserInput = userInput.toLowerCase();
+  const lowerWord = word.toLowerCase();
+
   // Green: The letter is correct and in the right position.
   // Yellow: The letter is in the word but in the wrong position.
   // Gray: The letter is not in the word.
 
   let output = "";
-  for (let i = 0; i < userInput.length; i++) {
-    if (userInput[i] === word[i]) {
+  for (let i = 0; i < lowerUserInput.length; i++) {
+    if (lowerUserInput[i] === lowerWord[i]) {
       output += `\x1b[32m${userInput[i]}\x1b[0m`;
-    } else if (word.includes(userInput[i])) {
+    } else if (lowerWord.includes(lowerUserInput[i])) {
       output += `\x1b[33m${userInput[i]}\x1b[0m`;
     } else {
       output += `\x1b[37m${userInput[i]}\x1b[0m`;
